@@ -220,8 +220,10 @@ class RPI4_to_SEW:
             addr, cw, speed, ramp = self.s7_read_from_PLC(
                 start=vfd._cw_addr)  # read control word from PLC
 
+            parsed_cw = utils.cw_to_enum(cw)
+
             s7_logger.debug(
-                f'Addr: {addr}, cw: {cw}, speed: {speed}, ramp: {ramp}')
+                f'Addr: {addr}, cw: {parsed_cw}, speed: {speed}, ramp: {ramp}')
 
             # append command tuple to commands
             commands.append((addr, cw, speed, ramp))
