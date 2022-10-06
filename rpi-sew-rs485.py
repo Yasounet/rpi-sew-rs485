@@ -128,8 +128,11 @@ class RPI4_to_SEW:
         rs485_logger.debug(f'current time = {time.time()}')
         if not s7_queue.empty():
             rs485_logger.debug('s7_queue not empty')
-
-            commands = deepcopy(s7_queue.queue[-1])
+            
+            try:
+                commands = deepcopy(s7_queue.queue[-1])
+            except IndexError:
+                commands = []
 
             with s7_queue.mutex:
                 s7_queue.queue.clear()
@@ -290,7 +293,7 @@ class RPI4_to_SEW:
         try:
             self.s7_client.db_write(s7_config.DB_NUM, vfd._sw_addr, new_data)
         except Exception as e:
-            c_logger.debug(f'test2 {e}')
+            c_logger.error(F'incorrect message while writing to PLC - dbnum: {s7_config.DB_NUM}, sw_address: {vfd._sw_addr}, payload: {new_data} ')
             self.s7_client.disconnect()
 
     def unpack_response(self, response):
@@ -308,7 +311,6 @@ class RPI4_to_SEW:
             addr, cw, speed, ramp = unpack('>BxHbxf', raw_data)
 
         except Exception as e:
-            c_logger.debug(f'test2 {e}')
             self.s7_client.disconnect()
             return 0, 0, 0, 0
 
