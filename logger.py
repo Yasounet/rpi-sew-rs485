@@ -1,6 +1,6 @@
 import logging
 
-LOG_DIR = 'logs/'
+LOG_DIR = '/home/ubuntu/workspace/rpi-sew-rs485/logs/'
 
 format = logging.Formatter('[%(levelname)s] - %(message)s')
 
