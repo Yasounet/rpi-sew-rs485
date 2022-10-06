@@ -1,0 +1,8 @@
+while queue not empty or time elapsed < 0
+    send frames
+    time.sleep(0.01)
+
+
+watek udp
+
+jak zmiana ramki to set event
