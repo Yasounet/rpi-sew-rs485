@@ -39,7 +39,7 @@ def packet_as_printable_hex(packet):
 def parse_control_packet(packet):
     
     command = unpack(">BBBHhHB", packet)
-    (sd1, adr, typ, cw1, speed, ramp, bcc) = command
+    (sd1, adr, typ, cw, speed, ramp, bcc) = command
 
     ramp = float(ramp/1000)
 
@@ -47,12 +47,16 @@ def parse_control_packet(packet):
 
     check_bcc = calculate_bcc(packet[:-1])
 
-    try:
-        parsed_cw = ControlCommands(cw1)
-    except ValueError:
-        parsed_cw = f'unknown command: {cw1}'
+    parsed_cw = cw_to_enum(cw)
 
-    return f'src: {"plc" if sd1 == 0x02 else "invalid"}, addr: {adr}, comm: {typ}, cw1: {parsed_cw}, speed: {speed}, ramp: {ramp}, bcc: {"valid" if bytes([bcc])==check_bcc else "invalid"}'
+    return f'src: {"plc" if sd1 == 0x02 else "invalid"}, addr: {adr}, comm: {typ}, cw: {parsed_cw}, speed: {speed}, ramp: {ramp}, bcc: {"valid" if bytes([bcc])==check_bcc else "invalid"}'
+
+def cw_to_enum(cw):
+    try:
+        parsed_cw = ControlCommands(cw)
+    except ValueError:
+        parsed_cw = f'unknown command: {cw}'
+    return parsed_cw
 
 def parse_status_packet(packet):
     
