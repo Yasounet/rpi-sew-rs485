@@ -129,12 +129,11 @@ class RPI4_to_SEW:
         if not s7_queue.empty():
             rs485_logger.debug('s7_queue not empty')
             
+            with s7_queue.mutex:
             try:
                 commands = deepcopy(s7_queue.queue[-1])
             except IndexError:
                 commands = []
-
-            with s7_queue.mutex:
                 s7_queue.queue.clear()
 
             for (addr, cw, speed, ramp) in commands:
@@ -241,8 +240,9 @@ class RPI4_to_SEW:
         if not rs485_queue.empty():
 
             # only read most recent status from rs485 queue
-            row = deepcopy(rs485_queue.queue[-1])
+            
             with rs485_queue.mutex:
+            row = deepcopy(rs485_queue.queue[-1])
                 rs485_queue.queue.clear()  # clear queue
 
             for (vfd_addr, vfd) in self._inverters:  # for every inverter in config list
