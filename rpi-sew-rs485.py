@@ -425,6 +425,7 @@ class RPI4_to_SEW:
             return False
 
         while not self._terminate:
+            time.sleep(2)
             pass
 
     def terminate(self):
