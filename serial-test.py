@@ -4,8 +4,8 @@ import serial
 import time
 
 ser = serial.Serial(port='/dev/ttyUSB0', baudrate=9600,
-            parity=serial.PARITY_EVEN,
-            stopbits=serial.STOPBITS_ONE, timeout=5)
+                    parity=serial.PARITY_EVEN,
+                    stopbits=serial.STOPBITS_ONE, timeout=5)
 
 stop = bytearray([0x02, 0x01, 0x85, 0x02, 0x00, 0x20, 0x00, 0x0B, 0xB8])
 

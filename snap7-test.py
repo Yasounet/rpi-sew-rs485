@@ -1,5 +1,5 @@
 import struct
-import snap7 
+import snap7
 import time
 
 

@@ -65,7 +65,7 @@ class RPI4_to_SEW:
         try:
             if self.serial == None:
                 self.serial = serial.Serial(port=rs485_config.port, baudrate=rs485_config.baudrate, parity=rs485_config.parity,
-                                            stopbits=rs485_config.stopbits, timeout=rs485_config.timeout, write_timeout=rs485_config.write_timeout,)# exclusive=True,)
+                                            stopbits=rs485_config.stopbits, timeout=rs485_config.timeout, write_timeout=rs485_config.write_timeout,)  # exclusive=True,)
                 c_logger.info(
                     f'Sucessfully created and connected serial connection at port: {self.serial.port}')
             else:
@@ -106,19 +106,19 @@ class RPI4_to_SEW:
         rs485_logger.info(' --- RS485 LOOP START --- ')
 
         if self._terminate:
-            return #return if we are terminating node
+            return  # return if we are terminating node
 
         if not self.s7_connected:
-            
+
             rs485_logger.error(f'No connection to PLC')
             rs485_logger.warning(f'Sending empty commands to drives')
             for (vfd_addr, vfd) in self._inverters:
                 vfd.update_params(0, 0, 0)
-                
+
             packets = self.create_packets()
             responses = self.send_packets(packets)
 
-            return 
+            return
 
         if not self.is_serial_connected():
             rs485_logger.error("RS485 not connected, reconnecting")
@@ -128,7 +128,7 @@ class RPI4_to_SEW:
         rs485_logger.debug(f'current time = {time.time()}')
         if not s7_queue.empty():
             rs485_logger.debug('s7_queue not empty')
-            
+
             with s7_queue.mutex:
                 try:
                     commands = deepcopy(s7_queue.queue[-1])
@@ -241,7 +241,7 @@ class RPI4_to_SEW:
         if not rs485_queue.empty():
 
             # only read most recent status from rs485 queue
-            
+
             with rs485_queue.mutex:
                 row = deepcopy(rs485_queue.queue[-1])
                 rs485_queue.queue.clear()  # clear queue
@@ -265,7 +265,7 @@ class RPI4_to_SEW:
                                 response)  # unpack respose
                         else:
                             s7_logger.debug("Empty response")
-                            #row.pop(id)
+                            # row.pop(id)
 
                     if vfd_addr == addr:  # try to match one of vfds in the config
                         s7_logger.debug(f"response matched, sending data")
@@ -273,7 +273,7 @@ class RPI4_to_SEW:
                         self.s7_write_to_PLC(vfd_addr, sw1, current, sw2)
                         sent = True
                         # pop response so we dont have to parse it more than once
-                        #row.pop(id)
+                        # row.pop(id)
                         break  # break out of response parsing loop, we already found a match
 
                 else:  # if we didnt match any data for vfd in responses
@@ -295,7 +295,8 @@ class RPI4_to_SEW:
         try:
             self.s7_client.db_write(s7_config.DB_NUM, vfd._sw_addr, new_data)
         except Exception as e:
-            c_logger.error(F'incorrect message while writing to PLC - dbnum: {s7_config.DB_NUM}, sw_address: {vfd._sw_addr}, payload: {new_data} ')
+            c_logger.error(
+                F'incorrect message while writing to PLC - dbnum: {s7_config.DB_NUM}, sw_address: {vfd._sw_addr}, payload: {new_data} ')
             self.s7_client.disconnect()
 
     def unpack_response(self, response):
