@@ -3,3 +3,5 @@ RACK = 0
 SLOT = 0
 
 DB_NUM = 500
+
+loop_time = 1

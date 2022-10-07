@@ -26,8 +26,8 @@ class RPI4_to_SEW:
         self.config = configparser.ConfigParser()
         self.read_config()
         self.debug = debug
-        self.rs485_rt = RepeatedTimer(0.25, self.rs485_loop)
-        self.s7_rt = RepeatedTimer(1, self.s7_loop)
+        self.rs485_rt = RepeatedTimer(rs485_config.loop_time, self.rs485_loop)
+        self.s7_rt = RepeatedTimer(s7_config.loop_time, self.s7_loop)
         self._terminate = False
         self.serial = None
         self.serial_connected = False
