@@ -263,7 +263,7 @@ class RPI4_to_SEW:
                                 utils.parse_status_packet(response))
                         else:
                             s7_logger.debug("Empty response")
-                            row.pop(id)
+                            #row.pop(id)
 
                     if vfd_addr == addr:  # try to match one of vfds in the config
                         s7_logger.debug(f"response matched, sending data")
@@ -271,7 +271,7 @@ class RPI4_to_SEW:
                         self.s7_write_to_PLC(vfd_addr, sw1, current, sw2)
                         sent = True
                         # pop response so we dont have to parse it more than once
-                        row.pop(id)
+                        #row.pop(id)
                         break  # break out of response parsing loop, we already found a match
 
                 else:  # if we didnt match any data for vfd in responses
