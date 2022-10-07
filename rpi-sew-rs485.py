@@ -65,7 +65,7 @@ class RPI4_to_SEW:
         try:
             if self.serial == None:
                 self.serial = serial.Serial(port=rs485_config.port, baudrate=rs485_config.baudrate, parity=rs485_config.parity,
-                                            stopbits=rs485_config.stopbits, timeout=rs485_config.timeout, write_timeout=rs485_config.write_timeout, exclusive=True,)
+                                            stopbits=rs485_config.stopbits, timeout=rs485_config.timeout, write_timeout=rs485_config.write_timeout,)# exclusive=True,)
                 c_logger.info(
                     f'Sucessfully created and connected serial connection at port: {self.serial.port}')
             else:
