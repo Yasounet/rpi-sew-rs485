@@ -130,10 +130,10 @@ class RPI4_to_SEW:
             rs485_logger.debug('s7_queue not empty')
             
             with s7_queue.mutex:
-            try:
-                commands = deepcopy(s7_queue.queue[-1])
-            except IndexError:
-                commands = []
+                try:
+                    commands = deepcopy(s7_queue.queue[-1])
+                except IndexError:
+                    commands = []
                 s7_queue.queue.clear()
 
             for (addr, cw, speed, ramp) in commands:
@@ -161,14 +161,15 @@ class RPI4_to_SEW:
         rs485_logger.info('Sending control packets to VFDs...')
         rs485_logger.info('Receiving responses...')
         responses = self.send_packets(packets)
-
         if responses is None:
+            rs485_logger.debug("Received no responses")
             return
-
         rs485_logger.debug(
             F'Putting {len(responses)} responses in rs485_queue')
         rs485_queue.put(responses)
 
+        for response in responses:
+            rs485_logger.debug(utils.parse_status_packet(response))
     # ----------------------- SIEMENS S7 -----------------------
 
     def connect_s7(self):
@@ -242,8 +243,11 @@ class RPI4_to_SEW:
             # only read most recent status from rs485 queue
             
             with rs485_queue.mutex:
-            row = deepcopy(rs485_queue.queue[-1])
+                row = deepcopy(rs485_queue.queue[-1])
                 rs485_queue.queue.clear()  # clear queue
+
+            for response in row:
+                s7_logger.debug(utils.parse_status_packet(response))
 
             for (vfd_addr, vfd) in self._inverters:  # for every inverter in config list
                 s7_logger.debug(f"creating status for vfd: {vfd_addr}")
@@ -259,8 +263,6 @@ class RPI4_to_SEW:
                         if len(response) > 0:  # if response isnt empty
                             addr, sw1, current, sw2 = self.unpack_response(
                                 response)  # unpack respose
-                            s7_logger.debug(
-                                utils.parse_status_packet(response))
                         else:
                             s7_logger.debug("Empty response")
                             #row.pop(id)
@@ -368,8 +370,6 @@ class RPI4_to_SEW:
             return
 
         responses = []
-
-        empty = False
         raw = None
 
         for packet in packets:
@@ -381,15 +381,7 @@ class RPI4_to_SEW:
                 self.serial.close()
                 c_logger.error(f'read error - {e}')
 
-            if raw is None or len(raw) == 0:
-                empty = True
-
             responses.append(raw)
-
-        if empty:
-            rs485_logger.warning("Empty responses from drive(s)!")
-            empty = False
-
         return responses
 
     def parse_packet(self, packet: bytearray):
