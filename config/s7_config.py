@@ -4,4 +4,4 @@ SLOT = 0
 
 DB_NUM = 500
 
-loop_time = 1
+loop_time = 0.4

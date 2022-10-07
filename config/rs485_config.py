@@ -7,4 +7,4 @@ stopbits=serial.STOPBITS_ONE
 timeout=0.1
 write_timeout=0.1
 exclusive=True
-loop_time = 0.25
+loop_time = 0.20
