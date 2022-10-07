@@ -34,4 +34,9 @@ rs485_logger = setup_logger(
     'rs485_logger', LOG_DIR + 'rs485.log', level=logging.DEBUG)
 s7_logger = setup_logger('udp_logger', LOG_DIR +
                           'udp.log', level=logging.DEBUG)
+
+
 c_logger = setup_console_logger('console_logger', level=logging.DEBUG)
+
+handler = logging.FileHandler(LOG_DIR + 'console.log', mode='w+')
+c_logger.addHandler(handler)
