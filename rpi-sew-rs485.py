@@ -33,6 +33,7 @@ class RPI4_to_SEW:
         self.serial_connected = False
         self.s7_client = None
         self.s7_connected = False
+        self.s7_in_run = False
         self._startup = False
 
         signal.signal(signal.SIGINT, self.catch)
@@ -108,9 +109,9 @@ class RPI4_to_SEW:
         if self._terminate:
             return  # return if we are terminating node
 
-        if not self.s7_connected:
+        if not self.s7_connected or not self.s7_in_run:
 
-            rs485_logger.error(f'No connection to PLC')
+            rs485_logger.error(f'No connection to PLC or CPU in stop mode')
             rs485_logger.warning(f'Sending empty commands to drives')
             for (vfd_addr, vfd) in self._inverters:
                 vfd.update_params(0, 0, 0)
@@ -214,6 +215,16 @@ class RPI4_to_SEW:
         s7_logger.info(' --- S7 LOOP START --- ')
         s7_logger.debug(f'current time = {time.time()}')
 
+        s7_logger.info("Checking CPU Status")
+        
+        if not self.s7_check_running():
+            self.s7_in_run = False
+            s7_logger.error('CPU in STOP Mode')
+            return
+
+        s7_logger.info('CPU in RUN Mode')
+        self.s7_in_run = True
+
         s7_logger.info("Reading new data from PLC")
 
         commands = []
@@ -303,6 +314,16 @@ class RPI4_to_SEW:
         resp = unpack(">BBBHHHB", response)
         (sd2, addr, typ, sw1, current, sw2, bcc) = resp
         return addr, sw1, current, sw2
+
+    def s7_check_running(self):
+
+        try:
+            state = self.s7_client.get_cpu_state()
+        except Exception as e:
+            c_logger.debug(e)
+            return False
+
+        return state == 'S7CpuStatusRun'
 
     def s7_read_from_PLC(self, db_num=s7_config.DB_NUM, start=0, lenght=10):
 
