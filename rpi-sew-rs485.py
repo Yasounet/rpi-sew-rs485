@@ -57,7 +57,7 @@ class RPI4_to_SEW:
 
     # ----------------------- SERIAL STUFF -----------------------
 
-    def connect_serial(self):
+    def connect_serial(self, logger = rs485_logger):
 
         if self.debug:
             c_logger.debug("Connected to fake serial")
@@ -79,7 +79,7 @@ class RPI4_to_SEW:
                     c_logger.debug('Reconnected')
 
         except serial.SerialException as e:
-            rs485_logger.debug(e)
+            logger.debug(e)
             return False
 
         return True
@@ -102,17 +102,19 @@ class RPI4_to_SEW:
         if self.serial is not None:
             self.serial.close()
 
-    def rs485_loop(self):
+    def rs485_loop(self, logger = rs485_logger):
 
-        rs485_logger.info(' --- RS485 LOOP START --- ')
+        logger.info(' --- RS485 LOOP START --- ')
+        logger.debug(f'current time = {time.time()}')
 
         if self._terminate:
+            logger.debug('Node terminating, skipping loop')
             return  # return if we are terminating node
 
         if not self.s7_connected or not self.s7_in_run:
 
-            rs485_logger.error(f'No connection to PLC or CPU in stop mode')
-            rs485_logger.warning(f'Sending empty commands to drives')
+            logger.error(f'No connection to PLC or CPU in stop mode')
+            logger.warning(f'Sending empty commands to drives')
             for (vfd_addr, vfd) in self._inverters:
                 vfd.update_params(0, 0, 0)
 
@@ -122,13 +124,12 @@ class RPI4_to_SEW:
             return
 
         if not self.is_serial_connected():
-            rs485_logger.error("RS485 not connected, reconnecting")
+            logger.error("RS485 not connected, reconnecting")
             self.connect_serial()
             return
 
-        rs485_logger.debug(f'current time = {time.time()}')
         if not s7_queue.empty():
-            rs485_logger.debug('s7_queue not empty')
+            logger.debug('s7_queue not empty')
 
             with s7_queue.mutex:
                 try:
@@ -143,37 +144,37 @@ class RPI4_to_SEW:
 
                 if vfd:
                     vfd.update_params(cw, speed, ramp)
-                    rs485_logger.info(
+                    logger.info(
                         f'Updating VFD: {addr} with cw: {cw}, speed: {speed}, ramp: {ramp}')
                 else:
-                    rs485_logger.error(
+                    logger.error(
                         f'Trying to change params of VFD: {addr} that doesnt exist')
 
         else:
-            rs485_logger.debug('no updates for vfd commands')
+            logger.debug('no updates for vfd commands')
 
         packets = self.create_packets()
-        rs485_logger.info(f'Creating {len(packets)} packets...')
+        logger.info(f'Creating {len(packets)} packets...')
 
         for packet in packets:
             message = utils.parse_control_packet(packet)
-            rs485_logger.debug(message)
+            logger.debug(message)
 
-        rs485_logger.info('Sending control packets to VFDs...')
-        rs485_logger.info('Receiving responses...')
+        logger.info('Sending control packets to VFDs...')
+        logger.info('Receiving responses...')
         responses = self.send_packets(packets)
         if responses is None:
-            rs485_logger.debug("Received no responses")
+            logger.debug("Received no responses")
             return
-        rs485_logger.debug(
+        logger.debug(
             F'Putting {len(responses)} responses in rs485_queue')
         rs485_queue.put(responses)
 
         for response in responses:
-            rs485_logger.debug(utils.parse_status_packet(response))
+            logger.debug(utils.parse_status_packet(response))
     # ----------------------- SIEMENS S7 -----------------------
 
-    def connect_s7(self):
+    def connect_s7(self, logger=s7_logger):
 
         self.s7_connected = False
 
@@ -199,30 +200,34 @@ class RPI4_to_SEW:
                     self.s7_connected = True
 
         except Exception as e:
-            s7_logger.debug(e)
+            logger.debug(e)
             return False
 
         return True
 
-    def s7_loop(self):
+    def s7_loop(self, logger=s7_logger):
+
+        logger.info(' --- S7 LOOP START --- ')
+        logger.debug(f'current time = {time.time()}')
 
         if self._terminate:
+            logger.debug('Node terminating, skipping loop')
             return
 
         if not self.s7_client.get_connected():
+            logger.warn('s7 client disconnected, attempting reconnect...')
             return self.connect_s7()
 
-        s7_logger.info(' --- S7 LOOP START --- ')
-        s7_logger.debug(f'current time = {time.time()}')
 
-        s7_logger.info("Checking CPU Status")
+
+        logger.info("Checking CPU Status")
         
         if not self.s7_check_running():
-            s7_logger.warning('CPU in STOP Mode')
+            logger.warning('CPU in STOP Mode')
             return
 
-        s7_logger.info('CPU in RUN Mode')
-        s7_logger.info("Reading new data from PLC")
+        logger.info('CPU in RUN Mode')
+        logger.info("Reading new data from PLC")
 
         commands = []
 
@@ -233,19 +238,19 @@ class RPI4_to_SEW:
 
             parsed_cw = utils.cw_to_enum(cw)
 
-            s7_logger.debug(
+            logger.debug(
                 f'Addr: {addr}, cw: {parsed_cw}, speed: {speed}, ramp: {ramp}')
 
             # append command tuple to commands
             commands.append((addr, cw, speed, ramp))
 
-        s7_logger.info("Sending commands to RS485 thread")
-        s7_logger.debug(f"Placing {len(commands)} commands in s7_queue")
+        logger.info("Sending commands to RS485 thread")
+        logger.debug(f"Placing {len(commands)} commands in s7_queue")
         s7_queue.put(commands)  # place commands in queue for rs485 thread
 
         addr = 0
 
-        s7_logger.info("Reading new data from RS485 thread")
+        logger.info("Reading new data from RS485 thread")
         if not rs485_queue.empty():
 
             # only read most recent status from rs485 queue
@@ -255,13 +260,13 @@ class RPI4_to_SEW:
                 rs485_queue.queue.clear()  # clear queue
 
             for response in row:
-                s7_logger.debug(utils.parse_status_packet(response))
+                logger.debug(utils.parse_status_packet(response))
 
             for (vfd_addr, vfd) in self._inverters:  # for every inverter in config list
-                s7_logger.debug(f"creating status for vfd: {vfd_addr}")
+                logger.debug(f"creating status for vfd: {vfd_addr}")
                 sent = False
 
-                s7_logger.debug(f"trying to match one of rs485 responses")
+                logger.debug(f"trying to match one of rs485 responses")
 
                 if sent:  # dont update status more than once
                     continue  # continue to next vfd in list
@@ -272,11 +277,11 @@ class RPI4_to_SEW:
                             addr, sw1, current, sw2 = self.unpack_response(
                                 response)  # unpack respose
                         else:
-                            s7_logger.debug("Empty response")
+                            logger.debug("Empty response")
                             # row.pop(id)
 
                     if vfd_addr == addr:  # try to match one of vfds in the config
-                        s7_logger.debug(f"response matched, sending data")
+                        logger.debug(f"response matched, sending data")
                         # write data to plc
                         self.s7_write_to_PLC(vfd_addr, sw1, current, sw2)
                         sent = True
@@ -285,12 +290,12 @@ class RPI4_to_SEW:
                         break  # break out of response parsing loop, we already found a match
 
                 else:  # if we didnt match any data for vfd in responses
-                    s7_logger.warning(
+                    logger.warning(
                         f"didnt match any response for vfd: {vfd_addr}, sending empty data")  # warn user
                     # write empty data to plc
                     self.s7_write_to_PLC(vfd_addr, 0, 0, 0)
 
-            s7_logger.info("Sending status data back to PLC")
+            logger.info("Sending status data back to PLC")
 
     def s7_write_to_PLC(self, addr, sw1, current, sw2):
         new_data = pack('>BxHHHxx', addr, sw1, current, sw2)
