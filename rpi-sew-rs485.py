@@ -218,13 +218,10 @@ class RPI4_to_SEW:
         s7_logger.info("Checking CPU Status")
         
         if not self.s7_check_running():
-            self.s7_in_run = False
-            s7_logger.error('CPU in STOP Mode')
+            s7_logger.warning('CPU in STOP Mode')
             return
 
         s7_logger.info('CPU in RUN Mode')
-        self.s7_in_run = True
-
         s7_logger.info("Reading new data from PLC")
 
         commands = []
@@ -317,13 +314,16 @@ class RPI4_to_SEW:
 
     def s7_check_running(self):
 
+        state = None
+
         try:
             state = self.s7_client.get_cpu_state()
         except Exception as e:
             c_logger.debug(e)
-            return False
 
-        return state == 'S7CpuStatusRun'
+        self.s7_in_run = state == 'S7CpuStatusRun'
+
+        return self.s7_in_run
 
     def s7_read_from_PLC(self, db_num=s7_config.DB_NUM, start=0, lenght=10):
 
