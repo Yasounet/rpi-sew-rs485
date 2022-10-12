@@ -105,7 +105,8 @@ class RPI4_to_SEW:
     def rs485_loop(self, logger = rs485_logger):
 
         logger.info(' --- RS485 LOOP START --- ')
-        logger.debug(f'current time = {time.time()}')
+        start = time.perf_counter()
+        logger.debug(f'current time = {start}')
 
         if self._terminate:
             logger.debug('Node terminating, skipping loop')
@@ -172,6 +173,9 @@ class RPI4_to_SEW:
 
         for response in responses:
             logger.debug(utils.parse_status_packet(response))
+
+        end = time.perf_counter()
+        logger.info(f"Loop took {end - start} time")
     # ----------------------- SIEMENS S7 -----------------------
 
     def connect_s7(self, logger=s7_logger):
@@ -208,7 +212,8 @@ class RPI4_to_SEW:
     def s7_loop(self, logger=s7_logger):
 
         logger.info(' --- S7 LOOP START --- ')
-        logger.debug(f'current time = {time.time()}')
+        start = time.perf_counter()
+        logger.debug(f'current time = {start}')
 
         if self._terminate:
             logger.debug('Node terminating, skipping loop')
@@ -296,6 +301,8 @@ class RPI4_to_SEW:
                     self.s7_write_to_PLC(vfd_addr, 0, 0, 0)
 
             logger.info("Sending status data back to PLC")
+            end = time.perf_counter()
+            logger.info(f"Loop took {end - start} time")
 
     def s7_write_to_PLC(self, addr, sw1, current, sw2):
         new_data = pack('>BxHHHxx', addr, sw1, current, sw2)
