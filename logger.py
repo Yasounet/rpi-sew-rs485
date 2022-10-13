@@ -37,4 +37,5 @@ s7_logger = setup_logger('udp_logger', LOG_DIR +
 c_logger = setup_console_logger('console_logger', level=logging.DEBUG)
 
 handler = logging.FileHandler(LOG_DIR + 'console.log', mode='w+')
+handler.setFormatter(format)
 c_logger.addHandler(handler)
