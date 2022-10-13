@@ -71,7 +71,7 @@ class RPI4_to_SEW:
                     f'Sucessfully created and connected serial connection at port: {self.serial.port}')
             else:
                 if self.serial.isOpen():
-                    self.ser.close()
+                    self.serial.close()
                     c_logger.debug('Disconnected from serial')
                     return False
                 else:
