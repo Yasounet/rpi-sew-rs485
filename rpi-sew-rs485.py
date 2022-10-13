@@ -57,7 +57,7 @@ class RPI4_to_SEW:
 
     # ----------------------- SERIAL STUFF -----------------------
 
-    def connect_serial(self, logger = rs485_logger):
+    def connect_serial(self, logger=rs485_logger):
 
         if self.debug:
             c_logger.debug("Connected to fake serial")
@@ -102,7 +102,7 @@ class RPI4_to_SEW:
         if self.serial is not None:
             self.serial.close()
 
-    def rs485_loop(self, logger = rs485_logger):
+    def rs485_loop(self, logger=rs485_logger):
 
         logger.info(' --- RS485 LOOP START --- ')
         start = time.perf_counter()
@@ -223,10 +223,8 @@ class RPI4_to_SEW:
             logger.warn('s7 client disconnected, attempting reconnect...')
             return self.connect_s7()
 
-
-
         logger.info("Checking CPU Status")
-        
+
         if not self.s7_check_running():
             logger.warning('CPU in STOP Mode')
             return
@@ -334,8 +332,8 @@ class RPI4_to_SEW:
         except Exception as e:
             c_logger.debug(e)
 
-        if state is None or state == utils.CPUStatus.UNKNOWN: # We might be disconnected from PLC? 
-            self.s7_connected = False # Force reconnected in s7 loop
+        if state is None or state == utils.CPUStatus.UNKNOWN:  # We might be disconnected from PLC?
+            self.s7_connected = False  # Force reconnected in s7 loop
             return False
 
         self.s7_in_run = state == utils.CPUStatus.RUN
