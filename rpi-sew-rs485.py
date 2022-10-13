@@ -196,7 +196,7 @@ class RPI4_to_SEW:
                 self.s7_connected = True
 
             else:
-                if not self.s7_client.get_connected():
+                if not self.s7_client.get_connected() or not self.s7_connected:
                     self.s7_client.connect(
                         s7_config.IP_ADDR, s7_config.RACK, s7_config.SLOT)
                     c_logger.debug(
@@ -219,7 +219,7 @@ class RPI4_to_SEW:
             logger.debug('Node terminating, skipping loop')
             return
 
-        if not self.s7_client.get_connected():
+        if not self.s7_client.get_connected() or not self.s7_connected:
             logger.warn('s7 client disconnected, attempting reconnect...')
             return self.connect_s7()
 
@@ -330,10 +330,15 @@ class RPI4_to_SEW:
 
         try:
             state = self.s7_client.get_cpu_state()
+            state = utils.CPUStatus(state)
         except Exception as e:
             c_logger.debug(e)
 
-        self.s7_in_run = state == 'S7CpuStatusRun'
+        if state is None or state == utils.CPUStatus.UNKNOWN: # We might be disconnected from PLC? 
+            self.s7_connected = False # Force reconnected in s7 loop
+            return False
+
+        self.s7_in_run = state == utils.CPUStatus.RUN
 
         return self.s7_in_run
 
