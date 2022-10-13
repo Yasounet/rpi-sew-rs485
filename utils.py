@@ -1,6 +1,10 @@
 from enum import Enum, IntFlag
 from struct import unpack
 
+class CPUStatus(Enum):
+    UNKNOWN = 'S7CpuStatusUnknown'
+    STOP = 'S7CpuStatusStop'
+    RUN = 'S7CpuStatusRun'
 
 class ControlCommands(Enum):
     NONE = 0
