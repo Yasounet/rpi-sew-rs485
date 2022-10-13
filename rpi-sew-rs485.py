@@ -512,8 +512,7 @@ class RPI4_to_SEW:
             # beginning of the packet, always the same based on config
             packet = bytearray([self.SD1, self.address, self.udt])
 
-            # compute control word to the packet
-            # utils.bytes_to_packet(packet, self.compute_control_word())
+            #  append control word
             packet += self._control_word.to_bytes(2, "big", signed=True)
 
             # append vfd setpoint speed
@@ -550,35 +549,6 @@ class RPI4_to_SEW:
             coded_speed = speed_temp.to_bytes(2, "big", signed=True)
 
             return coded_speed
-
-        def compute_control_word(self, enable=False, stop=False, reset=False, rb=False, bws=False):
-            controlword = 0x0000
-
-            if stop:
-                controlword = utils.ControlCommands.STOP
-
-            if bws and stop:  # stop with additional braking
-                controlword |= utils.ControlCommands.BRAKE
-
-            if enable and not stop:
-                controlword = utils.ControlCommands.ENABLE
-
-            if reset:
-                controlword = utils.ControlCommands.RESET
-
-            if rb:  # release brake on standby, we probably shouldnt use it
-                controlword = utils.ControlCommands.RELEASE_BREAK
-
-            controlword = controlword.to_bytes(2, "big", signed=True)
-
-            return controlword
-
-        def parse_packets(self, packets: list):
-
-            while packets:
-                packet = packets.pop()
-                resp = self.parse_packet(packet)
-                rs485_queue.put(resp)
 
         def update_params(self, controlword, speed, ramp):
 
