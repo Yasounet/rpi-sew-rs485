@@ -1,4 +1,5 @@
 import logging
+import logging.handlers as handlers
 
 LOG_DIR = '/home/ubuntu/workspace/rpi-sew-rs485/logs/'
 
@@ -20,7 +21,7 @@ def setup_console_logger(name=__name__, level=logging.INFO):
 def setup_logger(name, log_file, level=logging.INFO):
     """To setup as many loggers as you want"""
 
-    handler = logging.FileHandler(log_file, mode='w+')
+    handler = handlers.TimedRotatingFileHandler(filename=log_file, when='midnight', interval=1)
     handler.setFormatter(format)
 
     logger = logging.getLogger(name)
@@ -36,6 +37,6 @@ s7_logger = setup_logger('udp_logger', LOG_DIR +
                          'udp.log', level=logging.DEBUG)
 c_logger = setup_console_logger('console_logger', level=logging.DEBUG)
 
-handler = logging.FileHandler(LOG_DIR + 'console.log', mode='w+')
+handler = handlers.TimedRotatingFileHandler(filename= LOG_DIR + 'console.log', when='midnight', interval=1)
 handler.setFormatter(format)
 c_logger.addHandler(handler)
