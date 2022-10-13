@@ -443,11 +443,11 @@ class RPI4_to_SEW:
     def stop_threads(self):
 
         while self.rs485_rt.is_running:
-            rpi.rs485_rt.stop()
+            self.rs485_rt.stop()
             c_logger.debug('rs485 stopped')
 
         while self.s7_rt.is_running:
-            rpi.s7_rt.stop()
+            self.s7_rt.stop()
             c_logger.debug('s7 stopped')
 
     def loop(self):
