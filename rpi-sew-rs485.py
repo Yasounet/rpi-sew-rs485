@@ -20,7 +20,8 @@ s7_queue = queue.Queue()
 
 class RPI4_to_SEW:
     def __init__(self, nodename, config_path="/config/config.ini", debug=False):
-        self._nodename = nodename
+        # TODO: We should probably sort and separate these
+        self._nodename = nodename  # TODO: Use config value instead of hardcoding it
         self._config_path = config_path
         self._inverters = []
         self.config = configparser.ConfigParser()
@@ -29,7 +30,7 @@ class RPI4_to_SEW:
         self.rs485_rt = RepeatedTimer(rs485_config.loop_time, self.rs485_loop)
         self.s7_rt = RepeatedTimer(s7_config.loop_time, self.s7_loop)
         self._terminate = False
-        self.serial = None
+        self.serial = None  # TODO: check if providing None as port resolves issue with opening serial as soon as object is created
         self.serial_connected = False
         self.s7_client = None
         self.s7_connected = False
@@ -40,12 +41,13 @@ class RPI4_to_SEW:
 
     def startup(self):
 
-        self.populate_vfds()
+        self.populate_vfds()  # Create list of VFDs based on provided config file
 
         if not self.connect_serial(logger=c_logger):
             c_logger.error("Could not connect to serial")
             return False
 
+        # This is not required when starting, as PLC might be in STOP or powered off entirely
         self.connect_s7(logger=c_logger)
 
         if not self.start_threads():
@@ -64,7 +66,7 @@ class RPI4_to_SEW:
 
     def start_threads(self):
 
-        # todo implement timeout
+        # TODO: implement timeout so we dont just loop here if threads dont start for some reason
         while not (self.rs485_rt.is_running and self.s7_rt.is_running):
             self.rs485_rt.start()
             self.s7_rt.start()
@@ -73,6 +75,7 @@ class RPI4_to_SEW:
 
     def stop_threads(self):
 
+        # TODO: implement timeout so we dont just loop here if threads dont sotp for some reason
         while self.rs485_rt.is_running:
             self.rs485_rt.stop()
             c_logger.debug('rs485 stopped')
@@ -91,6 +94,8 @@ class RPI4_to_SEW:
             pass
 
     def terminate(self):
+
+        # TODO: This is really janky, even considered the rest of the code
         c_logger.info("Shutting down...")
         self._terminate = True
         try:
