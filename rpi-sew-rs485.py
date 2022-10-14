@@ -399,8 +399,7 @@ class RPI4_to_SEW:
             logger.debug(f'Cannot get CPU state: {e}')
 
         if state is None or state == utils.CPUStatus.UNKNOWN:  # We might be disconnected from PLC?
-            self.s7_connected = False  # Force reconnected in s7 loop
-            return False
+            self.s7_connected = False  # Force reconnect in s7 loop
 
         self.s7_in_run = state == utils.CPUStatus.RUN
 
