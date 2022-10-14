@@ -531,7 +531,7 @@ class SEW_VFD:
 
     def ramp_to_coded(self, ramp=None):
 
-        if ramp == None:
+        if ramp is None:
             raise Exception("Ramp value is empty")
 
         temp_ramp = int(ramp * self.RAMP_MULTIPLIER)
@@ -543,7 +543,7 @@ class SEW_VFD:
 
     def speed_to_coded(self, speed=None):
 
-        if speed == None:
+        if speed is None:
             raise Exception("Speed value is empty")
 
         speed_temp = round(speed / self.SPEED_MULTIPLIER)
