@@ -183,28 +183,30 @@ class RPI4_to_SEW:
         self.s7_connected = False
 
         if self.debug:
-            c_logger.debug("Connected to fake Siemens PLC")
+            logger.debug("Connected to fake Siemens PLC")
             return True
 
         try:
             if self.s7_client == None:
+                logger.debug("Creating snap7 client")
                 self.s7_client = snap7.client.Client()
                 self.s7_client.connect(
                     s7_config.IP_ADDR, s7_config.RACK, s7_config.SLOT)
-                c_logger.info(
+                logger.info(
                     f"Connected to {s7_config.IP_ADDR} rack {s7_config.RACK} slot {s7_config.SLOT}")
                 self.s7_connected = True
 
             else:
                 if not self.s7_client.get_connected() or not self.s7_connected:
+                    logger.debug("Attempting a reconnect to PLC")
                     self.s7_client.connect(
                         s7_config.IP_ADDR, s7_config.RACK, s7_config.SLOT)
-                    c_logger.debug(
+                    logger.debug(
                         f'Sucessfully reconnected to PLC at IP: {s7_config.IP_ADDR}')
                     self.s7_connected = True
 
         except Exception as e:
-            logger.debug(e)
+            logger.debug(f'Error while reconnecting: {e}')
             return False
 
         return True
@@ -322,7 +324,7 @@ class RPI4_to_SEW:
         (sd2, addr, typ, sw1, current, sw2, bcc) = resp
         return addr, sw1, current, sw2
 
-    def s7_check_running(self):
+    def s7_check_running(self, logger=s7_logger):
 
         state = None
 
@@ -330,7 +332,7 @@ class RPI4_to_SEW:
             state = self.s7_client.get_cpu_state()
             state = utils.CPUStatus(state)
         except Exception as e:
-            c_logger.debug(e)
+            logger.debug(f'Cannot get CPU state: {e}')
 
         if state is None or state == utils.CPUStatus.UNKNOWN:  # We might be disconnected from PLC?
             self.s7_connected = False  # Force reconnected in s7 loop
