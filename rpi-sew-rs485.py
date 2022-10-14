@@ -1,18 +1,18 @@
-from copy import deepcopy
-import time
-import serial
-import os
 import configparser
-import utils
+import os
 import queue
 import signal
-from logger import c_logger, rs485_logger, s7_logger
-import logging
-from config import rs485_config, s7_config
+import time
+from copy import deepcopy
+from struct import pack, unpack
+
+import serial
 import snap7
 
+import utils
+from config import rs485_config, s7_config
+from logger import c_logger, rs485_logger, s7_logger
 from timer import RepeatedTimer
-from struct import unpack, pack
 
 rs485_queue = queue.Queue()
 s7_queue = queue.Queue()
