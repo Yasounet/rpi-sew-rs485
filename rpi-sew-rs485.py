@@ -486,8 +486,10 @@ class SEW_VFD:
 
     SD1 = 0x02  # Busmaster start delimiter
 
+    SPEED_MULTIPLIER = 0.0061
     SPEED_MAX_DEC = 16384
     SPEED_MIN_DEC = -SPEED_MAX_DEC
+    RAMP_MULTIPLIER = 1000
     RAMP_MAX_DEC = 10000
     RAMP_MIN_DEC = 100
 
@@ -497,7 +499,7 @@ class SEW_VFD:
         self.name = config["Name"]
         self.address = int(config["Address"])
         self.udt = self.user_data_types.get(config["UserDataType"])
-        self._control_word = 0
+        self._control_word = utils.ControlCommands.NONE.value()
         self._speed = int(config["DefaultVelocity"])
         self._ramp = float(config["Ramp"])
         self._cw_addr = int(config["CW_START_ADDR"])
@@ -527,7 +529,7 @@ class SEW_VFD:
         if ramp == None:
             raise Exception("Ramp value is empty")
 
-        temp_ramp = int(ramp * 1000)
+        temp_ramp = int(ramp * self.RAMP_MULTIPLIER)
         temp_ramp = utils.py_clip(
             temp_ramp, self.RAMP_MIN_DEC, self.RAMP_MAX_DEC)
         coded_ramp = temp_ramp.to_bytes(2, "big", signed=True)
@@ -539,7 +541,7 @@ class SEW_VFD:
         if speed == None:
             raise Exception("Speed value is empty")
 
-        speed_temp = round(speed / 0.0061)
+        speed_temp = round(speed / self.SPEED_MULTIPLIER)
         speed_temp = utils.py_clip(
             speed_temp, self.SPEED_MIN_DEC, self.SPEED_MAX_DEC)
         coded_speed = speed_temp.to_bytes(2, "big", signed=True)
