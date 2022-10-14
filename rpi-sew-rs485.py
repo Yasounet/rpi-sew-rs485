@@ -223,6 +223,7 @@ class RPI4_to_SEW:
                 logger.warning('We are not connected')
                 return self.connect_s7()
             logger.warning('CPU in stop mode')
+            return
 
         logger.info('CPU in RUN Mode')
         logger.info("Reading new data from PLC")
