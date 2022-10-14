@@ -4,6 +4,7 @@ import queue
 import signal
 import time
 from copy import deepcopy
+from datetime import datetime
 from struct import pack, unpack
 
 import serial
@@ -21,6 +22,12 @@ s7_queue = queue.Queue()
 class RPI4_to_SEW:
     def __init__(self, nodename, config_path="/config/config.ini", debug=False):
         # TODO: We should probably sort and separate these
+
+        now = datetime.now()
+        c_logger.info('----------------------------------------')
+        c_logger.info('Starting RPI NODE!')
+        c_logger.info(f'Current time is {now}')
+
         self._nodename = nodename  # TODO: Use config value instead of hardcoding it
         self._config_path = config_path
         self._inverters = []

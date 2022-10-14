@@ -1,30 +1,41 @@
 import logging
 import logging.handlers as handlers
+from pathlib import Path
 
-# TODO: Make relative path actually work instead of hardcoding it
-LOG_DIR = '/home/ubuntu/workspace/rpi-sew-rs485/logs/'
+CURRENT_PATH = Path(__file__).parent
+LOG_DIR = 'logs/'
+LOG_PATH = CURRENT_PATH.joinpath(LOG_DIR)
 
-format = logging.Formatter('[%(levelname)s] - %(message)s')
+RS_LOG_PATH = LOG_PATH.joinpath('rs485.log')
+S7_LOG_PATH = LOG_PATH.joinpath('s7.log')
+C_LOG_PATH = LOG_PATH.joinpath('console.log')
+
+FORMAT = logging.Formatter('[%(levelname)s] - %(message)s')
+LOG_LEVEL = logging.DEBUG
 
 
-def setup_console_logger(name=__name__, level=logging.INFO):
+def setup_console_logger(name, log_file, level=logging.INFO):
 
     handler = logging.StreamHandler()
-    handler.setFormatter(format)
+    handler.setFormatter(FORMAT)
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
     logger.addHandler(handler)
-
-    return logger
-
-
-def setup_logger(name, log_file, level=logging.INFO):
-    """To setup as many loggers as you want"""
 
     handler = handlers.TimedRotatingFileHandler(
         filename=log_file, when='midnight', interval=1)
-    handler.setFormatter(format)
+    handler.setFormatter(FORMAT)
+    logger.addHandler(handler)
+
+    return logger
+
+
+def setup_thread_logger(name, log_file, level=logging.INFO):
+
+    handler = handlers.TimedRotatingFileHandler(
+        filename=log_file, when='midnight', interval=1)
+    handler.setFormatter(FORMAT)
 
     logger = logging.getLogger(name)
     logger.setLevel(level)
@@ -33,14 +44,7 @@ def setup_logger(name, log_file, level=logging.INFO):
     return logger
 
 
-rs485_logger = setup_logger(
-    'rs485_logger', LOG_DIR + 'rs485.log', level=logging.DEBUG)
-s7_logger = setup_logger('udp_logger', LOG_DIR +
-                         'udp.log', level=logging.DEBUG)
-c_logger = setup_console_logger('console_logger', level=logging.DEBUG)
-
-# TODO: Fixing this mess
-handler = handlers.TimedRotatingFileHandler(
-    filename=LOG_DIR + 'console.log', when='midnight', interval=1)
-handler.setFormatter(format)
-c_logger.addHandler(handler)
+rs485_logger = setup_thread_logger(
+    'rs485_logger', RS_LOG_PATH, level=LOG_LEVEL)
+s7_logger = setup_thread_logger('udp_logger', S7_LOG_PATH, level=LOG_LEVEL)
+c_logger = setup_console_logger('console_logger', C_LOG_PATH, level=LOG_LEVEL)
