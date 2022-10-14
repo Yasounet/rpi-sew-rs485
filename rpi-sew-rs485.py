@@ -180,33 +180,28 @@ class RPI4_to_SEW:
 
     def connect_s7(self, logger=s7_logger):
 
-        self.s7_connected = False
+        self.s7_connected = False  # Is this really necessary?
 
         if self.debug:
             logger.debug("Connected to fake Siemens PLC")
+            self.s7_connected = True
             return True
 
         try:
-            if self.s7_client == None:
+            if self.s7_client is None or not self.s7_connected:
                 logger.debug("Creating snap7 client")
+                # Recreating whole client appears to have more success when reconnecting, any clues why?
                 self.s7_client = snap7.client.Client()
                 self.s7_client.connect(
-                    s7_config.IP_ADDR, s7_config.RACK, s7_config.SLOT)
+                    s7_config.IP_ADDR, s7_config.RACK, s7_config.SLOT)  # Tends to throw a lot of random errors when just trying to reconnect
                 logger.info(
                     f"Connected to {s7_config.IP_ADDR} rack {s7_config.RACK} slot {s7_config.SLOT}")
                 self.s7_connected = True
-
             else:
-                if not self.s7_client.get_connected() or not self.s7_connected:
-                    logger.debug("Attempting a reconnect to PLC")
-                    self.s7_client.connect(
-                        s7_config.IP_ADDR, s7_config.RACK, s7_config.SLOT)
-                    logger.debug(
-                        f'Sucessfully reconnected to PLC at IP: {s7_config.IP_ADDR}')
-                    self.s7_connected = True
-
+                # This should never really happen
+                logger.error("Reconnection while connected")
         except Exception as e:
-            logger.debug(f'Error while reconnecting: {e}')
+            logger.error(f'Error while reconnecting: {e}')
             return False
 
         return True
@@ -221,15 +216,13 @@ class RPI4_to_SEW:
             logger.debug('Node terminating, skipping loop')
             return
 
-        if not self.s7_client.get_connected() or not self.s7_connected:
-            logger.warn('s7 client disconnected, attempting reconnect...')
-            return self.connect_s7()
-
         logger.info("Checking CPU Status")
 
         if not self.s7_check_running():
-            logger.warning('CPU in STOP Mode')
-            return
+            if not self.s7_connected:
+                logger.warning('We are not connected')
+                return self.connect_s7()
+            logger.warning('CPU in stop mode')
 
         logger.info('CPU in RUN Mode')
         logger.info("Reading new data from PLC")
@@ -331,6 +324,7 @@ class RPI4_to_SEW:
         try:
             state = self.s7_client.get_cpu_state()
             state = utils.CPUStatus(state)
+            logger.debug(state)
         except Exception as e:
             logger.debug(f'Cannot get CPU state: {e}')
 
