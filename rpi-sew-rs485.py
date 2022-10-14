@@ -42,11 +42,11 @@ class RPI4_to_SEW:
 
         self.populate_vfds()
 
-        if not self.connect_serial():
+        if not self.connect_serial(logger=c_logger):
             c_logger.error("Could not connect to serial")
             return False
 
-        self.connect_s7()
+        self.connect_s7(logger=c_logger)
 
         if not self.start_threads():
             c_logger.error("Could not start comm threads")
@@ -55,28 +55,85 @@ class RPI4_to_SEW:
         self._startup = True
         return True
 
+    def read_config(self):
+        full_path = os.path.realpath(__file__)
+        dir_path = os.path.dirname(full_path)
+        config_path = dir_path + self._config_path
+        c_logger.info(f"Reading config from {config_path}")
+        self.config.read(config_path)
+
+    def start_threads(self):
+
+        # todo implement timeout
+        while not (self.rs485_rt.is_running and self.s7_rt.is_running):
+            self.rs485_rt.start()
+            self.s7_rt.start()
+
+        return True
+
+    def stop_threads(self):
+
+        while self.rs485_rt.is_running:
+            self.rs485_rt.stop()
+            c_logger.debug('rs485 stopped')
+
+        while self.s7_rt.is_running:
+            self.s7_rt.stop()
+            c_logger.debug('s7 stopped')
+
+    def loop(self):
+
+        if not self._startup:
+            return False
+
+        while not self._terminate:
+            time.sleep(2)
+            pass
+
+    def terminate(self):
+        c_logger.info("Shutting down...")
+        self._terminate = True
+        try:
+            c_logger.info('Stopping threads')
+            self.stop_threads()
+            c_logger.debug(
+                'Threads stopped, sleeping to finish last loop before closing serial')
+            time.sleep(1)
+        finally:
+
+            c_logger.info('Closing serial connection')
+            self.close_serial()
+
+        c_logger.debug('Deleting VFD objects...')
+        for (_, vfd) in self._inverters:
+            c_logger.debug(f'Deleting {vfd.name}')
+            del vfd
+
+    def catch(self, signum, frame):
+        self.terminate()
+
     # ----------------------- SERIAL STUFF -----------------------
 
     def connect_serial(self, logger=rs485_logger):
 
         if self.debug:
-            c_logger.debug("Connected to fake serial")
+            logger.debug("Connected to fake serial")
             return True
 
         try:
             if self.serial == None:
                 self.serial = serial.Serial(port=rs485_config.port, baudrate=rs485_config.baudrate, parity=rs485_config.parity,
                                             stopbits=rs485_config.stopbits, timeout=rs485_config.timeout, write_timeout=rs485_config.write_timeout,)  # exclusive=True,)
-                c_logger.info(
+                logger.info(
                     f'Sucessfully created and connected serial connection at port: {self.serial.port}')
             else:
                 if self.serial.isOpen():
                     self.serial.close()
-                    c_logger.debug('Disconnected from serial')
+                    logger.debug('Disconnected from serial')
                     return False
                 else:
                     self.serial.open()
-                    c_logger.debug('Reconnected')
+                    logger.debug('Reconnected serial')
 
         except serial.SerialException as e:
             logger.debug(e)
@@ -84,7 +141,7 @@ class RPI4_to_SEW:
 
         return True
 
-    def is_serial_connected(self):
+    def is_serial_connected(self, logger=rs485_logger):
 
         if self.debug:
             return True
@@ -93,11 +150,11 @@ class RPI4_to_SEW:
             return self.serial.isOpen()
 
         except:
-            c_logger.debug('Serial not connected')
+            logger.debug('Serial not connected')
             return False
 
-    def close_serial(self):
-        c_logger.debug('Closing serial')
+    def close_serial(self, logger=rs485_logger):
+        logger.debug('Closing serial')
 
         if self.serial is not None:
             self.serial.close()
@@ -298,7 +355,7 @@ class RPI4_to_SEW:
             end = time.perf_counter()
             logger.info(f"Loop took {end - start} time")
 
-    def s7_write_to_PLC(self, addr, sw1, current, sw2):
+    def s7_write_to_PLC(self, addr, sw1, current, sw2, logger=s7_logger):
         new_data = pack('>BxHHHxx', addr, sw1, current, sw2)
 
         vfd = self.get_vfd_by_id(addr)
@@ -309,11 +366,11 @@ class RPI4_to_SEW:
         try:
             self.s7_client.db_write(s7_config.DB_NUM, vfd._sw_addr, new_data)
         except Exception as e:
-            c_logger.error(
+            logger.error(
                 F'incorrect message while writing to PLC - dbnum: {s7_config.DB_NUM}, sw_address: {vfd._sw_addr}, payload: {new_data} ')
             self.s7_client.disconnect()
 
-    def unpack_response(self, response):
+    def unpack_response(self, response):  # Should probably exist in VFD class instead
         resp = unpack(">BBBHHHB", response)
         (sd2, addr, typ, sw1, current, sw2, bcc) = resp
         return addr, sw1, current, sw2
@@ -351,13 +408,6 @@ class RPI4_to_SEW:
             return 0, 0, 0, 0
 
         return addr, cw, speed, round(ramp, 2)
-
-    def read_config(self):
-        full_path = os.path.realpath(__file__)
-        dir_path = os.path.dirname(full_path)
-        config_path = dir_path + self._config_path
-        c_logger.info(f"Reading config from {config_path}")
-        self.config.read(config_path)
 
     # ----------------------- VFD stuff -----------------------
 
@@ -425,56 +475,6 @@ class RPI4_to_SEW:
         resp = [adr, sw1, current]
 
         return resp
-
-    def start_threads(self):
-
-        # todo implement timeout
-        while not (self.rs485_rt.is_running and self.s7_rt.is_running):
-            self.rs485_rt.start()
-            self.s7_rt.start()
-
-        return True
-
-    def stop_threads(self):
-
-        while self.rs485_rt.is_running:
-            self.rs485_rt.stop()
-            c_logger.debug('rs485 stopped')
-
-        while self.s7_rt.is_running:
-            self.s7_rt.stop()
-            c_logger.debug('s7 stopped')
-
-    def loop(self):
-
-        if not self._startup:
-            return False
-
-        while not self._terminate:
-            time.sleep(2)
-            pass
-
-    def terminate(self):
-        c_logger.info("Shutting down...")
-        self._terminate = True
-        try:
-            c_logger.info('Stopping threads')
-            self.stop_threads()
-            c_logger.debug(
-                'Threads stopped, sleeping to finish last loop before closing serial')
-            time.sleep(1)
-        finally:
-
-            c_logger.info('Closing serial connection')
-            self.close_serial()
-
-        c_logger.debug('Deleting VFD objects...')
-        for (_, vfd) in self._inverters:
-            c_logger.debug(f'Deleting {vfd.name}')
-            del vfd
-
-    def catch(self, signum, frame):
-        self.terminate()
 
 
 class SEW_VFD:
