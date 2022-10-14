@@ -504,7 +504,7 @@ class SEW_VFD:
         self.name = config["Name"]
         self.address = int(config["Address"])
         self.udt = self.user_data_types.get(config["UserDataType"])
-        self._control_word = utils.ControlCommands.NONE.value()
+        self._control_word = utils.ControlCommands.NONE.value
         self._speed = int(config["DefaultVelocity"])
         self._ramp = float(config["Ramp"])
         self._cw_addr = int(config["CW_START_ADDR"])
