@@ -365,7 +365,7 @@ class RPI4_to_SEW:
         c_logger.info("Populating VFDs...")
         for vfd_config in self.config:
             if "VFD" in vfd_config:
-                sew_vfd = self.SEW_VFD(self.config[vfd_config])
+                sew_vfd = SEW_VFD(self.config[vfd_config])
                 addr = sew_vfd.address
                 self._inverters.append((addr, sew_vfd))
                 c_logger.debug(
@@ -476,82 +476,83 @@ class RPI4_to_SEW:
     def catch(self, signum, frame):
         self.terminate()
 
-    class SEW_VFD:
 
-        user_data_types = {
-            "3_Cyclical": 0x5,
-            "3_Acyclical": 0x85,
-        }
+class SEW_VFD:
 
-        SD1 = 0x02  # Busmaster start delimiter
+    user_data_types = {
+        "3_Cyclical": 0x5,
+        "3_Acyclical": 0x85,
+    }
 
-        SPEED_MAX_DEC = 16384
-        SPEED_MIN_DEC = -SPEED_MAX_DEC
-        RAMP_MAX_DEC = 10000
-        RAMP_MIN_DEC = 100
+    SD1 = 0x02  # Busmaster start delimiter
 
-        def __init__(self, config):
-            # print(f"creating vfd with config: {config}")
-            self.config = config
-            self.name = config["Name"]
-            self.address = int(config["Address"])
-            self.udt = self.user_data_types.get(config["UserDataType"])
-            self._control_word = 0
-            self._speed = int(config["DefaultVelocity"])
-            self._ramp = float(config["Ramp"])
-            self._cw_addr = int(config["CW_START_ADDR"])
-            self._sw_addr = int(config["SW_START_ADDR"])
+    SPEED_MAX_DEC = 16384
+    SPEED_MIN_DEC = -SPEED_MAX_DEC
+    RAMP_MAX_DEC = 10000
+    RAMP_MIN_DEC = 100
 
-        def create_packet(self):
+    def __init__(self, config):
+        # print(f"creating vfd with config: {config}")
+        self.config = config
+        self.name = config["Name"]
+        self.address = int(config["Address"])
+        self.udt = self.user_data_types.get(config["UserDataType"])
+        self._control_word = 0
+        self._speed = int(config["DefaultVelocity"])
+        self._ramp = float(config["Ramp"])
+        self._cw_addr = int(config["CW_START_ADDR"])
+        self._sw_addr = int(config["SW_START_ADDR"])
 
-            # beginning of the packet, always the same based on config
-            packet = bytearray([self.SD1, self.address, self.udt])
+    def create_packet(self):
 
-            #  append control word
-            packet += self._control_word.to_bytes(2, "big", signed=True)
+        # beginning of the packet, always the same based on config
+        packet = bytearray([self.SD1, self.address, self.udt])
 
-            # append vfd setpoint speed
-            packet += self.speed_to_coded(self._speed)
+        #  append control word
+        packet += self._control_word.to_bytes(2, "big", signed=True)
 
-            # if we are using three word control, append ramp
-            packet += self.ramp_to_coded(self._ramp)
+        # append vfd setpoint speed
+        packet += self.speed_to_coded(self._speed)
 
-            # calculate and append crc
-            packet += utils.calculate_bcc(packet)
+        # if we are using three word control, append ramp
+        packet += self.ramp_to_coded(self._ramp)
 
-            return packet
+        # calculate and append crc
+        packet += utils.calculate_bcc(packet)
 
-        def ramp_to_coded(self, ramp=None):
+        return packet
 
-            if ramp == None:
-                raise Exception("Ramp value is empty")
+    def ramp_to_coded(self, ramp=None):
 
-            temp_ramp = int(ramp * 1000)
-            temp_ramp = utils.py_clip(
-                temp_ramp, self.RAMP_MIN_DEC, self.RAMP_MAX_DEC)
-            coded_ramp = temp_ramp.to_bytes(2, "big", signed=True)
+        if ramp == None:
+            raise Exception("Ramp value is empty")
 
-            return coded_ramp
+        temp_ramp = int(ramp * 1000)
+        temp_ramp = utils.py_clip(
+            temp_ramp, self.RAMP_MIN_DEC, self.RAMP_MAX_DEC)
+        coded_ramp = temp_ramp.to_bytes(2, "big", signed=True)
 
-        def speed_to_coded(self, speed=None):
+        return coded_ramp
 
-            if speed == None:
-                raise Exception("Speed value is empty")
+    def speed_to_coded(self, speed=None):
 
-            speed_temp = round(speed / 0.0061)
-            speed_temp = utils.py_clip(
-                speed_temp, self.SPEED_MIN_DEC, self.SPEED_MAX_DEC)
-            coded_speed = speed_temp.to_bytes(2, "big", signed=True)
+        if speed == None:
+            raise Exception("Speed value is empty")
 
-            return coded_speed
+        speed_temp = round(speed / 0.0061)
+        speed_temp = utils.py_clip(
+            speed_temp, self.SPEED_MIN_DEC, self.SPEED_MAX_DEC)
+        coded_speed = speed_temp.to_bytes(2, "big", signed=True)
 
-        def update_params(self, controlword, speed, ramp):
+        return coded_speed
 
-            self._control_word = controlword
-            self._speed = speed
-            self._ramp = ramp
+    def update_params(self, controlword, speed, ramp):
 
-            return True
+        self._control_word = controlword
+        self._speed = speed
+        self._ramp = ramp
+
+        return True
 
 
 if __name__ == "__main__":
