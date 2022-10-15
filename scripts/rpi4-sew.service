@@ -1,0 +1,13 @@
+[Unit]
+Description= PLC to SEW drives service
+Required=multi-user.target
+
+[Service]
+User=ubuntu
+Group=ubuntu
+Type=simple
+Restart=always
+ExecStart=/usr/bin/python3 /home/ubuntu/workspace/rpi-sew-rs485/main.py
+
+[Install]
+WantedBy=multi-user.target

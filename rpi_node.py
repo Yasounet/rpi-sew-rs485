@@ -14,13 +14,14 @@ import snap7
 import utils
 from config import rs485_config, s7_config
 from logger import c_logger, rs485_logger, s7_logger
-from timer import RepeatedTimer
+from repeated_timer import RepeatedTimer
+from sew_movimot_vfd import MoviMotVFD
 
-rs485_queue = queue.Queue()
-s7_queue = queue.Queue()
+_rs485_queue = queue.Queue()
+_s7_queue = queue.Queue()
 
 
-class RPI4_to_SEW:
+class RPI4Node:
     def __init__(self, nodename, config_path="/config/config.ini", debug=False):
 
         now = datetime.now()
@@ -34,7 +35,7 @@ class RPI4_to_SEW:
         self._config_path = config_path
         self._config = configparser.ConfigParser()
         self._read_config()
-        self._inverters = []  # type: list[tuple[int, SEW_VFD]]
+        self._inverters = []  # type: list[tuple[int, MoviMotVFD]]
 
         # Threads
         self._rs485_rt = RepeatedTimer(
@@ -213,15 +214,15 @@ class RPI4_to_SEW:
             self._connect_serial()
             return
 
-        if not s7_queue.empty():
+        if not _s7_queue.empty():
             logger.debug('s7_queue not empty')
 
-            with s7_queue.mutex:
+            with _s7_queue.mutex:
                 try:
-                    commands = deepcopy(s7_queue.queue[-1])
+                    commands = deepcopy(_s7_queue.queue[-1])
                 except IndexError:
                     commands = []
-                s7_queue.queue.clear()
+                _s7_queue.queue.clear()
 
             for (addr, cw, speed, ramp) in commands:
 
@@ -253,7 +254,7 @@ class RPI4_to_SEW:
             return
         logger.debug(
             F'Putting {len(responses)} responses in rs485_queue')
-        rs485_queue.put(responses)
+        _rs485_queue.put(responses)
 
         for response in responses:
             logger.debug(utils.parse_status_packet(response))
@@ -329,18 +330,18 @@ class RPI4_to_SEW:
 
         logger.info("Sending commands to RS485 thread")
         logger.debug(f"Placing {len(commands)} commands in s7_queue")
-        s7_queue.put(commands)  # place commands in queue for rs485 thread
+        _s7_queue.put(commands)  # place commands in queue for rs485 thread
 
         addr = 0
 
         logger.info("Reading new data from RS485 thread")
-        if not rs485_queue.empty():
+        if not _rs485_queue.empty():
 
             # only read most recent status from rs485 queue
 
-            with rs485_queue.mutex:
-                row = deepcopy(rs485_queue.queue[-1])
-                rs485_queue.queue.clear()  # clear queue
+            with _rs485_queue.mutex:
+                row = deepcopy(_rs485_queue.queue[-1])
+                _rs485_queue.queue.clear()  # clear queue
 
             for response in row:
                 logger.debug(utils.parse_status_packet(response))
@@ -452,11 +453,11 @@ class RPI4_to_SEW:
         c_logger.info("Populating VFDs...")
         for vfd_config in self._config:
             if "VFD" in vfd_config:
-                sew_vfd = SEW_VFD(self._config[vfd_config])
-                addr = sew_vfd.address
-                self._inverters.append((addr, sew_vfd))
+                vfd = MoviMotVFD(self._config[vfd_config])
+                addr = vfd.address
+                self._inverters.append((addr, vfd))
                 c_logger.debug(
-                    f"VFD {sew_vfd.name} with address {addr} added")
+                    f"VFD {vfd.name} with address {addr} added")
 
     def list_vfds(self) -> 'list[tuple[int, str]]':
         vfd_list = []
@@ -464,7 +465,7 @@ class RPI4_to_SEW:
             vfd_list.append((addr, vfd.name))
         return vfd_list
 
-    def _get_vfd_by_id(self, addr) -> Optional['SEW_VFD']:
+    def _get_vfd_by_id(self, addr) -> Optional['MoviMotVFD']:
 
         for (vfd_addr, vfd) in self._inverters:
             if vfd_addr == addr:
@@ -510,95 +511,3 @@ class RPI4_to_SEW:
         resp = [adr, sw1, current]
 
         return resp
-
-
-class SEW_VFD:
-
-    user_data_types = {
-        "3_Cyclical": 0x5,
-        "3_Acyclical": 0x85,
-    }
-
-    _SD1 = 0x02  # Busmaster start delimiter
-
-    _SPEED_MULTIPLIER = 0.0061
-    _SPEED_MAX_DEC = 16384
-    _SPEED_MIN_DEC = -_SPEED_MAX_DEC
-    _RAMP_MULTIPLIER = 1000
-    _RAMP_MAX_DEC = 10000
-    _RAMP_MIN_DEC = 100
-
-    def __init__(self, config):
-        # print(f"creating vfd with config: {config}")
-        self._config = config
-
-        self.name = config["Name"]
-        self.address = int(config["Address"])
-        self.cw_addr = int(config["CW_START_ADDR"])
-        self.sw_addr = int(config["SW_START_ADDR"])
-
-        self._udt = self.user_data_types.get(
-            config["UserDataType"], self.user_data_types['3_Cyclical'])
-        self._control_word = utils.ControlCommands.NONE.value
-        self._speed = int(config["DefaultVelocity"])
-        self._ramp = float(config["Ramp"])
-
-    def create_packet(self):
-
-        # beginning of the packet, always the same based on config
-        packet = bytearray([self._SD1, self.address, self._udt])
-
-        #  append control word
-        packet += self._control_word.to_bytes(2, "big", signed=True)
-
-        # append vfd setpoint speed
-        packet += self._speed_to_coded(self._speed)
-
-        # if we are using three word control, append ramp
-        packet += self._ramp_to_coded(self._ramp)
-
-        # calculate and append crc
-        packet += utils.calculate_bcc(packet)
-
-        return packet
-
-    def update_params(self, controlword, speed, ramp):
-
-        self._control_word = controlword
-        self._speed = speed
-        self._ramp = ramp
-
-        return True
-
-    def _ramp_to_coded(self, ramp=None):
-
-        if ramp is None:
-            raise Exception("Ramp value is empty")
-
-        temp_ramp = int(ramp * self._RAMP_MULTIPLIER)
-        temp_ramp = utils.py_clip(
-            temp_ramp, self._RAMP_MIN_DEC, self._RAMP_MAX_DEC)
-        coded_ramp = temp_ramp.to_bytes(2, "big", signed=True)
-
-        return coded_ramp
-
-    def _speed_to_coded(self, speed=None):
-
-        if speed is None:
-            raise Exception("Speed value is empty")
-
-        speed_temp = round(speed / self._SPEED_MULTIPLIER)
-        speed_temp = utils.py_clip(
-            speed_temp, self._SPEED_MIN_DEC, self._SPEED_MAX_DEC)
-        coded_speed = speed_temp.to_bytes(2, "big", signed=True)
-
-        return coded_speed
-
-
-if __name__ == "__main__":
-
-    rpi = RPI4_to_SEW(
-        'RPI_test_node', config_path='/config/config.ini', debug=False)
-
-    rpi.startup()
-    rpi.loop()
