@@ -14,11 +14,16 @@ import snap7
 import utils
 from config import rs485_config, s7_config
 from logger import c_logger, rs485_logger, s7_logger
+from logging import getLogger, CRITICAL
 from repeated_timer import RepeatedTimer
 from sew_movimot_vfd import MoviMotVFD
 
 _rs485_queue = queue.Queue()
 _s7_queue = queue.Queue()
+
+
+snap7_logger = getLogger(snap7.__name__)
+snap7_logger.setLevel(CRITICAL)
 
 
 class RPI4Node:
